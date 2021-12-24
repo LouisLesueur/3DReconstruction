@@ -31,7 +31,7 @@ def as_mesh(scene_or_mesh):
                 tuple(trimesh.Trimesh(vertices=g.vertices, faces=g.faces)
                     for g in scene_or_mesh.geometry.values()))
     else:
-        assert(isinstance(mesh, trimesh.Trimesh))
+        assert(isinstance(scene_or_mesh, trimesh.Trimesh))
         mesh = scene_or_mesh
     return mesh
 
@@ -47,11 +47,11 @@ if __name__ == "__main__":
     shape_id = 0
 
     for mesh_name in tqdm(mesh_list):
-        path = os.path.join(mesh_path, mesh_name)
+        path = os.path.join(mesh_path, mesh_name, 'models', 'model_normalized.obj')
         scene = trimesh.load_mesh(path)
 
         mesh = as_mesh(scene)
-        json_path = os.path.join(args.output_data, mesh_name[:-4]+".json")
+        json_path = os.path.join(args.output_data, f"model_{shape_id}.json")
 
         # Sample points and compute SDF
         points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
