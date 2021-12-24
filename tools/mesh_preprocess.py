@@ -3,6 +3,9 @@ import trimesh
 from mesh_to_sdf import sample_sdf_near_surface
 import argparse
 import os
+from tqdm import tqdm
+import time
+import json
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
@@ -39,23 +42,27 @@ if __name__ == "__main__":
     mesh_path = args.input_data
     mesh_list = os.listdir(mesh_path)
 
-    for mesh_name in mesh_list:
+    start_time = time.time()
+
+    for mesh_name in tqdm(mesh_list):
         path = os.path.join(mesh_path, mesh_name)
         scene = trimesh.load_mesh(path)
 
         mesh = as_mesh(scene)
+        json_path = os.path.join(args.output_data, mesh_name[:-4]+".json")
 
         # Sample points and compute SDF
         points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
         
-        # Compute occupancy map
-        oc = np.zeros(sdf.shape)
-        oc[sdf>0] = 1
+        data = {}
+        data["x"] = points.T[0].tolist()
+        data["y"] = points.T[1].tolist()
+        data["z"] = points.T[2].tolist()
+        data["sdf"] = sdf.tolist()
 
-        # Color map for plot
-        colors = np.zeros(points.shape)
-        colors[sdf < 0, 2] = 1
-        colors[sdf > 0, 0] = 1
+        with open(json_path, 'w') as f:
+            json_data = json.dump(data, f)
 
-        pc = trimesh.PointCloud(points, colors)
-        pc.show()
+
+    end_time = time.time()
+    print(f"All meshes done in {end_time-start_time} s")
