@@ -18,6 +18,8 @@ if __name__ == "__main__":
     with open(mesh_path, 'r') as f:
         data = json.load(f)
 
+        print(f"You are viewing shape number {data['id']}")
+
         X = np.array(data["x"])
         Y = np.array(data["y"])
         Z = np.array(data["z"])

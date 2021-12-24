@@ -44,6 +44,8 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
+    shape_id = 0
+
     for mesh_name in tqdm(mesh_list):
         path = os.path.join(mesh_path, mesh_name)
         scene = trimesh.load_mesh(path)
@@ -55,6 +57,7 @@ if __name__ == "__main__":
         points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
         
         data = {}
+        data["id"] = shape_id
         data["x"] = points.T[0].tolist()
         data["y"] = points.T[1].tolist()
         data["z"] = points.T[2].tolist()
@@ -63,6 +66,7 @@ if __name__ == "__main__":
         with open(json_path, 'w') as f:
             json_data = json.dump(data, f)
 
+        shape_id += 1
 
     end_time = time.time()
     print(f"All meshes done in {end_time-start_time} s")

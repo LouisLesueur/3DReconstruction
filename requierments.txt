@@ -3,3 +3,4 @@ trimesh
 pyglet
 rtree
 mesh_to_sdf
+tqdm
