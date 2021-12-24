@@ -33,7 +33,12 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
 criterion = # FIND A CRITERION !
 
 global_data = PointCloudDataset(PARAMS["data_dir"])
-global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
+prop = 0.7
+train_size = int(prop*len(global_data))
+train_data, test_data = random_split(sonar_dataset, [train_size, len(global_data)-train_size])
+
+train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=2)
+val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=2)
 # FIND HOW TO SPLIT TRAIN/VAL !
 
 PARAM_TEXT = ""
