@@ -12,6 +12,7 @@ class DeepSDF(nn.Module):
         self.dim = dim
 
         self.name = "DeepSDF"
+        self.known_shapes = 0
         
         self.input_layer = nn.utils.weight_norm(nn.Linear(dim+code_dim, size))
 

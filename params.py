@@ -11,27 +11,14 @@ import sys
 
 
 PARAMS = {
-        "batch_size": 2,
-        "data_dir": 'data/preprocessed',
+        "batch_size": 128,
+        "data_dir": 'data/preprocessed/out.json',
         "epochs": 100,
         "lr": 0.0001,
         "load": None,
 }
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-model = DeepSDF().to(device)
-
-PARAMS["model"] = model.name
-
-if PARAMS["load"] is not(None):
-    model.load_state_dict(torch.load(LOAD))
-
-optimizer = optim.Adam(model.parameters(), lr=PARAMS["lr"], weight_decay=0.9)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
-
-shape_criterion = torch.nn.L1Loss()
-criterion = torch.nn.MSELoss()
 
 global_data = PointCloudDataset(PARAMS["data_dir"])
 prop = 0.7
@@ -40,7 +27,23 @@ train_data, val_data = random_split(global_data, [train_size, len(global_data)-t
 
 train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=2)
 val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=2)
-# FIND HOW TO SPLIT TRAIN/VAL !
+
+
+model = DeepSDF().to(device)
+model.known_shapes = len(train_data)
+
+PARAMS["model"] = model.name
+
+if PARAMS["load"] is not(None):
+    checkpoint = torch.load(LOAD)
+    model.load_state_dict(checkpoint["model"])
+    model.known_shapes = checkpoint["shapes"]
+
+optimizer = optim.Adam(model.parameters(), lr=PARAMS["lr"], weight_decay=0.9)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
+
+criterion = torch.nn.L1Loss()
+
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():

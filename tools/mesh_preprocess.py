@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser(description="Preprocessing meshes for proper tr
 parser.add_argument('--input_data', type=str, help="input meshes directory", default="data/raw")
 parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed")
 parser.add_argument('--n_samples', type=int, help="how much points to sample", default=50000)
+parser.add_argument('--n_shapes', type=int, help="how much points to sample", default=100)
 
 args = parser.parse_args()
 
@@ -45,28 +46,34 @@ if __name__ == "__main__":
     start_time = time.time()
 
     shape_id = 0
+    
+    data = {}
+    data["points"] = []
+    data["sdf"] = []
 
-    for mesh_name in tqdm(mesh_list):
+    for index in tqdm(range(args.n_shapes)):
+        mesh_name = mesh_list[index]
         path = os.path.join(mesh_path, mesh_name, 'models', 'model_normalized.obj')
         scene = trimesh.load_mesh(path)
 
         mesh = as_mesh(scene)
-        json_path = os.path.join(args.output_data, f"model_{shape_id}.json")
 
         # Sample points and compute SDF
         points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
-        
-        data = {}
-        data["id"] = shape_id
-        data["x"] = points.T[0].tolist()
-        data["y"] = points.T[1].tolist()
-        data["z"] = points.T[2].tolist()
-        data["sdf"] = sdf.tolist()
+        X = points.T[0].tolist()
+        Y = points.T[1].tolist()
+        Z = points.T[2].tolist()
+        sdf = sdf.tolist()
 
-        with open(json_path, 'w') as f:
-            json_data = json.dump(data, f)
+        for i in range(len(points)):
+            data["points"].append([X[i], Y[i], Z[i], shape_id])
+            data["sdf"].append(sdf[i])
 
         shape_id += 1
+
+    json_path = os.path.join(args.output_data, f"out.json")
+    with open(json_path, 'w') as f:
+        json_data = json.dump(data, f)
 
     end_time = time.time()
     print(f"All meshes done in {end_time-start_time} s")
