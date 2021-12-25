@@ -55,4 +55,5 @@ if __name__ == "__main__":
         model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
         torch.save({"model": model.state_dict(),
                     "latent_vecs": lat_vecs.state_dict(),
+                    "latent_size": PARAMS["latent_size"],
                     "shapes": model.known_shapes}, model_file)

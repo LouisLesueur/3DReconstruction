@@ -33,7 +33,7 @@ lat_vecs = torch.nn.Embedding(global_data.n_shapes, PARAMS["latent_size"], max_n
 torch.nn.init.normal_(lat_vecs.weight.data, 0.0, 0.01)
 
 model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
-model.known_shapes = len(train_data)
+model.known_shapes = global_data.n_shapes
 
 PARAMS["model"] = model.name
 
