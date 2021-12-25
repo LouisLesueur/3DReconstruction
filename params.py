@@ -11,7 +11,7 @@ import sys
 
 
 PARAMS = {
-        "batch_size": 128,
+        "batch_size": 16,
         "data_dir": 'data/preprocessed',
         "epochs": 100,
         "lr": 0.001,
@@ -26,8 +26,8 @@ prop = 0.7
 train_size = int(prop*len(global_data))
 train_data, val_data = random_split(global_data, [train_size, len(global_data)-train_size])
 
-train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=2)
-val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=2)
+train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=1)
+val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=1)
 
 lat_vecs = torch.nn.Embedding(len(global_data), PARAMS["latent_size"], max_norm=1).to(device)
 torch.nn.init.normal_(lat_vecs.weight.data, 0.0, 0.01)

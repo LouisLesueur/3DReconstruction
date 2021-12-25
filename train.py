@@ -38,6 +38,7 @@ if __name__ == "__main__":
 
         for batch_idx, (points, sdfs, indices) in enumerate(tqdm(train_loader)):
             points, sdfs, indices = points.to(device), sdfs.to(device), indices.to(device)
+
             latent_vec = lat_vecs(indices)
             data = torch.cat([points, latent_vec], dim=2)
             
