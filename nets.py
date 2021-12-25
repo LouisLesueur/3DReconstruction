@@ -27,4 +27,4 @@ class DeepSDF(nn.Module):
         out = self.input_layer(x)
         out = F.relu(out)
         out = self.output_layer(out)
-        return F.tanh(out)
+        return torch.tanh(out)

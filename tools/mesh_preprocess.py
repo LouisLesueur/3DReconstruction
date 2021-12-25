@@ -9,9 +9,9 @@ import json
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
-parser.add_argument('--input_data', type=str, help="input meshes directory", default="../data/raw")
-parser.add_argument('--output_data', type=str, help="output meshes directory", default="../data/preprcessed")
-parser.add_argument('--n_samples', type=int, help="how much points to sample", default=500000)
+parser.add_argument('--input_data', type=str, help="input meshes directory", default="data/raw")
+parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed")
+parser.add_argument('--n_samples', type=int, help="how much points to sample", default=50000)
 
 args = parser.parse_args()
 

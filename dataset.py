@@ -7,7 +7,7 @@ import json
 class PointCloudDataset(Dataset):
     def __init__(self, data_path):
         self.data_path = os.path.join(data_path)
-        self.models = os.listdir(self.img_path)
+        self.models = os.listdir(self.data_path)
     
     def __len__(self):
         return len(self.models)
@@ -19,10 +19,12 @@ class PointCloudDataset(Dataset):
         with open(path) as f:
            data = json.load(f)
 
-           X = torch.tensor(data["x"])
-           Y = torch.tensor(data["y"])
-           Z = torch.tensor(data["z"])
-           Id = torch.tensor(data["id"])
+           X = data["x"]
+           Y = data["y"]
+           Z = data["z"]
+           Id = [data["id"] for _ in range(len(X))]
+
+           point_cloud = torch.tensor([X,Y,Z, Id]).T
            sdf = torch.tensor(data["sdf"])
         
-        return X,Y,Z,Id,sdf
+        return point_cloud,sdf.T

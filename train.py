@@ -12,14 +12,12 @@ def validation():
     validation_loss = 0
 
     with torch.no_grad():
-        for X, Y, Z, Id, sdf in tqdm(val_loader):
-            X, Y, Z, Id, sdf = X.to(device), Y.to(device), Z.to(device), Id.to(device), sdf.to(device)
-            output = []
-            for i in range(len(X)):
-                output.append(model(X[i], Y[i], Z[i], Id).item())
-
-            output = torch.tensor(output).to(device)
-            validation_loss += criterion(output, sdf)
+        for input_data, sdf in tqdm(val_loader):
+            sdf = sdf.to(device)
+            for i, data in enumerate(input_data):
+                data = data.to(device)
+                output = model(data)
+                validation_loss += criterion(output.T, sdf[i])
 
     return validation_loss / len(val_loader.dataset)
 
@@ -36,21 +34,20 @@ if __name__ == "__main__":
         writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
         model.train()
 
-        for batch_idx, (X, Y, Z, Id, sdf) in enumerate(tqdm(train_loader)):
-            X, Y, Z, Id, sdf = X.to(device), Y.to(device), Z.to(device), Id.to(device), sdf.to(device)
+        for batch_idx, (input_data, sdf) in enumerate(tqdm(train_loader)):
+            sdf = sdf.to(device)
+            for i, data in enumerate(input_data):
+                data = data.to(device)
+                output = model(data)
 
-            writer.add_scalar("Train/Loss", loss.data.item(), iteration)
-            output = []
-            for i in range(len(X)):
-                output.append(model(X[i], Y[i], Z[i], Id).item())
+                loss = criterion(output.T, sdf[i])
+            
+                writer.add_scalar("Train/Loss", loss.data.item(), iteration)
 
-            output = torch.tensor(output).to(device)
-            loss = criterion(output, sdf)
-
-            iteration += 1
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                iteration += 1
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
         val_loss = validation()
         writer.add_scalar("Val/Loss", val_loss, epoch)
