@@ -13,7 +13,7 @@ parser.add_argument('--input_data', type=str, help="input meshes directory", def
 parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed")
 parser.add_argument('--n_samples', type=int, help="how much points to sample", default=50000)
 parser.add_argument('--n_shapes', type=int, help="how much points to sample", default=100)
-parser.add_argument('--start_from', type=int, help="start from the i-th file (alpha order)", default=None)
+parser.add_argument('--start_from', type=int, help="start from the i-th file (alpha order)", default=0)
 
 
 args = parser.parse_args()
@@ -47,15 +47,11 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    shape_id = 0
+    shape_id = args.start_from
 
     print(f"Preprocessing {args.n_shapes} files over {len(mesh_list)}")
 
-    start = 0
-    if args.start_from is not None:
-        start = args.start_from
-
-    for index in tqdm(range(args.n_shapes)):
+    for index in tqdm(range(shape_id, args.n_shapes)):
         data = {}
         data["points"] = []
         data["id"] = []
