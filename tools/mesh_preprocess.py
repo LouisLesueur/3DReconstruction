@@ -49,9 +49,8 @@ if __name__ == "__main__":
     
     data = {}
     data["points"] = []
-    data["shape_id"] = []
+    data["id"] = []
     data["sdf"] = []
-    data["n_shapes"] = args.n_shapes
 
     for index in tqdm(range(args.n_shapes)):
         mesh_name = mesh_list[index]
@@ -66,17 +65,18 @@ if __name__ == "__main__":
         Y = points.T[1].tolist()
         Z = points.T[2].tolist()
         sdf = sdf.tolist()
+        data["id"] = shape_id
 
         for i in range(len(points)):
             data["points"].append([X[i], Y[i], Z[i]])
-            data["shape_id"].append(shape_id)
             data["sdf"].append(sdf[i])
+    
+        json_path = os.path.join(args.output_data, f"model_{shape_id}.json")
+        with open(json_path, 'w') as f:
+            json_data = json.dump(data, f)
 
         shape_id += 1
 
-    json_path = os.path.join(args.output_data, f"out.json")
-    with open(json_path, 'w') as f:
-        json_data = json.dump(data, f)
 
     end_time = time.time()
     print(f"All meshes done in {end_time-start_time} s")

@@ -12,14 +12,16 @@ def validation():
     validation_loss = 0
 
     with torch.no_grad():
-        for data, sdf, indices in tqdm(val_loader):
-            data, sdf, indices = data.to(device), sdf.to(device), indices.to(device)
+        for points, sdfs, indices in tqdm(val_loader):
+            points, sdfs, indices = points.to(device), sdfs.to(device), indices.to(device)
             latent_vec = lat_vecs(indices)
-            data = torch.cat([data, latent_vec], dim=1)
-            output = model(data)
-            validation_loss += criterion(output.T[0], sdf)
+            data = torch.cat([points, latent_vec], dim=2)
 
-    return validation_loss / len(val_loader.dataset)
+            for i, point in enumerate(data):
+                output = model(point)
+                validation_loss += criterion(output.T[0], sdfs[i])
+
+    return validation_loss / len(val_loader)
 
 
 if __name__ == "__main__":
@@ -34,13 +36,13 @@ if __name__ == "__main__":
         writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
         model.train()
 
-        for batch_idx, (data, sdf, indices) in enumerate(tqdm(train_loader)):
-            data, sdf, indices = data.to(device), sdf.to(device), indices.to(device)
-
+        for batch_idx, (points, sdfs, indices) in enumerate(tqdm(train_loader)):
+            points, sdfs, indices = points.to(device), sdfs.to(device), indices.to(device)
             latent_vec = lat_vecs(indices)
-            data = torch.cat([data, latent_vec], dim=1)
-            output = model(data)
-            loss = criterion(output.T[0], sdf)
+            data = torch.cat([points, latent_vec], dim=2)
+            
+            output = model(data[0])
+            loss = criterion(output.T[0], sdfs[0]) / len(train_loader)
             
             writer.add_scalar("Train/Loss", loss.data.item(), iteration)
 

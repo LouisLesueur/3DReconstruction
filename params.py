@@ -12,7 +12,7 @@ import sys
 
 PARAMS = {
         "batch_size": 128,
-        "data_dir": 'data/preprocessed/out.json',
+        "data_dir": 'data/preprocessed',
         "epochs": 100,
         "lr": 0.001,
         "load": None,
@@ -29,11 +29,11 @@ train_data, val_data = random_split(global_data, [train_size, len(global_data)-t
 train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=2)
 val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
-lat_vecs = torch.nn.Embedding(global_data.n_shapes, PARAMS["latent_size"], max_norm=1).to(device)
+lat_vecs = torch.nn.Embedding(len(global_data), PARAMS["latent_size"], max_norm=1).to(device)
 torch.nn.init.normal_(lat_vecs.weight.data, 0.0, 0.01)
 
 model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
-model.known_shapes = global_data.n_shapes
+model.known_shapes = len(global_data)
 
 PARAMS["model"] = model.name
 
@@ -46,7 +46,7 @@ if PARAMS["load"] is not(None):
 optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr"]},
                         {"params": lat_vecs.parameters(), "lr": PARAMS["lr"]}])
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
-criterion = torch.nn.L1Loss()
+criterion = torch.nn.L1Loss(reduction="sum")
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
