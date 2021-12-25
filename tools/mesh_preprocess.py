@@ -49,7 +49,9 @@ if __name__ == "__main__":
     
     data = {}
     data["points"] = []
+    data["shape_id"] = []
     data["sdf"] = []
+    data["n_shapes"] = args.n_shapes
 
     for index in tqdm(range(args.n_shapes)):
         mesh_name = mesh_list[index]
@@ -66,7 +68,8 @@ if __name__ == "__main__":
         sdf = sdf.tolist()
 
         for i in range(len(points)):
-            data["points"].append([X[i], Y[i], Z[i], shape_id])
+            data["points"].append([X[i], Y[i], Z[i]])
+            data["shape_id"].append(shape_id)
             data["sdf"].append(sdf[i])
 
         shape_id += 1

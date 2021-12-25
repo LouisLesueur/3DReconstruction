@@ -12,8 +12,10 @@ def validation():
     validation_loss = 0
 
     with torch.no_grad():
-        for data, sdf in tqdm(val_loader):
-            data, sdf = data.to(device), sdf.to(device)
+        for data, sdf, indices in tqdm(val_loader):
+            data, sdf, indices = data.to(device), sdf.to(device), indices.to(device)
+            latent_vec = lat_vecs(indices)
+            data = torch.cat([data, latent_vec], dim=1)
             output = model(data)
             validation_loss += criterion(output.T[0], sdf)
 
@@ -32,10 +34,12 @@ if __name__ == "__main__":
         writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
         model.train()
 
-        for batch_idx, (data, sdf) in enumerate(tqdm(train_loader)):
-            data, sdf = data.to(device), sdf.to(device)
-            output = model(data)
+        for batch_idx, (data, sdf, indices) in enumerate(tqdm(train_loader)):
+            data, sdf, indices = data.to(device), sdf.to(device), indices.to(device)
 
+            latent_vec = lat_vecs(indices)
+            data = torch.cat([data, latent_vec], dim=1)
+            output = model(data)
             loss = criterion(output.T[0], sdf)
             
             writer.add_scalar("Train/Loss", loss.data.item(), iteration)
@@ -49,4 +53,6 @@ if __name__ == "__main__":
         writer.add_scalar("Val/Loss", val_loss, epoch)
         scheduler.step(val_loss)
         model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
-        torch.save({"model": model.state_dict(), "shapes": model.known_shapes}, model_file)
+        torch.save({"model": model.state_dict(),
+                    "latent_vecs": lat_vecs.state_dict(),
+                    "shapes": model.known_shapes}, model_file)

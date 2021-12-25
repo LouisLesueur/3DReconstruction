@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class DeepSDF(nn.Module):
 
-    def __init__(self, code_dim=1, dim=3, n_layers=8, size=512):
+    def __init__(self, code_dim=100, dim=3, n_layers=8, size=512):
 
         super().__init__()
 

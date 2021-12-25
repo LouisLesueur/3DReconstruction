@@ -14,8 +14,9 @@ PARAMS = {
         "batch_size": 128,
         "data_dir": 'data/preprocessed/out.json',
         "epochs": 100,
-        "lr": 0.0001,
+        "lr": 0.001,
         "load": None,
+        "latent_size": 100
 }
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -28,8 +29,10 @@ train_data, val_data = random_split(global_data, [train_size, len(global_data)-t
 train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=2)
 val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
+lat_vecs = torch.nn.Embedding(global_data.n_shapes, PARAMS["latent_size"], max_norm=1).to(device)
+torch.nn.init.normal_(lat_vecs.weight.data, 0.0, 0.01)
 
-model = DeepSDF().to(device)
+model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
 model.known_shapes = len(train_data)
 
 PARAMS["model"] = model.name
@@ -37,13 +40,13 @@ PARAMS["model"] = model.name
 if PARAMS["load"] is not(None):
     checkpoint = torch.load(LOAD)
     model.load_state_dict(checkpoint["model"])
+    lat_vecs.load_state_dict(checkpoint["latent_vecs"])
     model.known_shapes = checkpoint["shapes"]
 
-optimizer = optim.Adam(model.parameters(), lr=PARAMS["lr"], weight_decay=0.9)
+optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr"]},
+                        {"params": lat_vecs.parameters(), "lr": PARAMS["lr"]}])
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
-
 criterion = torch.nn.L1Loss()
-
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():

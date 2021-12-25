@@ -16,12 +16,14 @@ model = DeepSDF().to(device)
 
 with open(args.input_json) as f:
     data = json.load(f)
-    X = data["x"]
-    Y = data["y"]
-    Z = data["z"]
+    points = data["points"]
 
     best_Id = 0
-    for i in range(model)
+    for i in range(model.known_shapes):
+        for pt in points:
+            input_data = torch.tensor([pt[0], pt[1], pt[2], i])
+            output = 
+            criterion = torch.nn.L1Loss()
 
 
-    point_cloud = torch.tensor([X,Y,Z, Id]).T
+
