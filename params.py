@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 
 PARAMS = {
-        "batch_size": 16,
+        "batch_size": 32,
         "data_dir": 'data/preprocessed',
         "epochs": 100,
         "lr": 0.0001,
