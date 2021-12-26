@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import os
 from tqdm import tqdm
@@ -5,7 +6,7 @@ from torchvision.utils import make_grid
 from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
 from nets.deepSDF import DeepSDF
-from dataset import PointCloudDataset
+from dataset import ShapeDataset
 from torch.utils.data import DataLoader, random_split
 import sys
 import logging
@@ -13,16 +14,17 @@ from datetime import datetime
 
 # Training parameters
 PARAMS = {
-        "batch_size": 32,
+        "batch_size": 2048,
         "data_dir": 'data/preprocessed',
-        "epochs": 100,
-        "lr": 0.0001,
+        "epochs": 8,
+        "lr": 0.001,
         "load": None,
-        "latent_size": 100,
+        "latent_size": 256,
         "logloc": "logs",
         "delta": 0.1,
         "sigma": 10,
-        "reg": True
+        "reg": False,
+        "n_shapes": 500
 }
 
 # Logger
@@ -40,32 +42,20 @@ logging.basicConfig(
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Data loaders
-global_data = PointCloudDataset(PARAMS["data_dir"])
-prop = 0.7 # training/val split
-train_size = int(prop*len(global_data))
-train_data, val_data = random_split(global_data, [train_size, len(global_data)-train_size])
-train_loader = DataLoader(train_data, batch_size=PARAMS["batch_size"], num_workers=1)
-val_loader = DataLoader(val_data, batch_size=PARAMS["batch_size"], num_workers=1)
-
-# Latent vectors
-lat_vecs = torch.nn.Embedding(len(global_data), PARAMS["latent_size"], max_norm=1).to(device)
-torch.nn.init.normal_(lat_vecs.weight.data, 0.0, 0.01)
-
 # Model
 model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
-model.known_shapes = len(global_data)
 PARAMS["model"] = model.name
 if PARAMS["load"] is not(None):
     checkpoint = torch.load(LOAD)
     model.load_state_dict(checkpoint["model"])
-    lat_vecs.load_state_dict(checkpoint["latent_vecs"])
     model.known_shapes = checkpoint["shapes"]
+model.eval()
 
-optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr"]},
-                        {"params": lat_vecs.parameters(), "lr": PARAMS["lr"]}])
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
+latent_vectors = torch.ones(PARAMS["n_shapes"], PARAMS["latent_size"]).to(device)
+torch.nn.init.xavier_normal_(latent_vectors)
 
+optimizer = optim.Adam([{"params":model.parameters(), "lr": PARAMS["lr"]},
+                        {"params": [latent_vectors], "lr": PARAMS["lr"]}])
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
@@ -73,7 +63,7 @@ for key, value in PARAMS.items():
 
 logging.info(f"Starting training, with parameters: \n{PARAM_TEXT}")
 
-def criterion(x1, x2, latent):
+def criterion(x1, x2):
     '''
     Clamped L1 loss
     '''
@@ -82,29 +72,7 @@ def criterion(x1, x2, latent):
     X1 = torch.minimum(Delta, torch.maximum(-Delta, x1))
     X2 = torch.minimum(Delta, torch.maximum(-Delta, x2))
 
-    if PARAMS["reg"]:
-        reg = (1/PARAMS["sigma"]) * torch.sum(latent**2)
-    else:
-        reg = 9
-
-    return l1_loss(X1, X2) + reg
-
-def validation():
-    model.eval()
-    validation_loss = 0
-
-    with torch.no_grad():
-        for points, sdfs, indices in tqdm(val_loader):
-            points, sdfs, indices = points.to(device), sdfs.to(device), indices.to(device)
-            latent_vec = lat_vecs(indices)
-            data = torch.cat([points, latent_vec], dim=2)
-
-            for i, point in enumerate(data):
-                output = model(point)
-                validation_loss += criterion(output.T[0], sdfs[i], lat_vecs.weight.data)
-
-    return validation_loss / len(val_loader)
-
+    return l1_loss(X1, X2)
 
 if __name__ == "__main__":
 
@@ -114,33 +82,43 @@ if __name__ == "__main__":
 
     writer.add_text("Params", PARAM_TEXT)
 
-    for epoch in range(1, PARAMS["epochs"]):
-        writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
-        model.train()
+    global_epoch = 0
 
-        for batch_idx, (points, sdfs, indices) in enumerate(tqdm(train_loader)):
-            points, sdfs, indices = points.to(device), sdfs.to(device), indices.to(device)
+    for shape_id in range(PARAMS["n_shapes"]):
+        # Data loaders
+        global_data = ShapeDataset(PARAMS["data_dir"], shape_id)
+        global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=1)
 
-            latent_vec = lat_vecs(indices)
-            data = torch.cat([points, latent_vec], dim=2)
+        logging.info(f"Starting training on shape number {shape_id}")
+
+        for epoch in range(1, PARAMS["epochs"]):
+            writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
+            model.train()
+            running_loss = []
+
+            for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
+                points, sdfs = points.to(device), sdfs.to(device)
+
+                optimizer.zero_grad()
+                output = model(latent_vectors[shape_id], points)
+                loss = criterion(output.T, sdfs)
+                running_loss.append(loss.item())
             
-            output = model(data[0])
-            loss = criterion(output.T[0], sdfs[0], lat_vecs.weight.data)
-            
-            writer.add_scalar("Train/Loss", loss.data.item(), iteration)
+                iteration += 1
+                loss.backward()
+                optimizer.step()
 
-            iteration += 1
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            writer.add_scalar("Train/Loss", np.mean(running_loss), global_epoch)
+            global_epoch += 1
 
-        val_loss = validation()
-        writer.add_scalar("Val/Loss", val_loss, epoch)
-        scheduler.step(val_loss)
-        model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
-        torch.save({"model": model.state_dict(),
-                    "latent_vecs": lat_vecs.state_dict(),
-                    "latent_size": PARAMS["latent_size"],
-                    "shapes": model.known_shapes}, model_file)
+                #pc_plot = points[-1].unsqueeze(0)
+                #final_sdf = output.T[0]
+                #colors = torch.zeros_like(pc_plot)
+                #colors[0,final_sdf < 0, 2] = 255
+                #colors[0,final_sdf > 0, 0] = 255
+                #writer.add_mesh("last_mesh", vertices=pc_plot, colors=colors)
 
-        logging.info(f"Training, epoch {epoch} finished, train loss: {loss.data.item()}, val loss: {val_loss}")
+        model_file = os.path.join("checkpoints", f"{model.name}_{shape_id}.pth")
+        torch.save({"model": model.state_dict(), 
+                    "n_shapes": PARAMS["n_shapes"], 
+                    "latent_size": PARAMS["latent_size"]}, model_file)
