@@ -1,7 +1,7 @@
 import numpy as np
 import trimesh
 import argparse
-from nets import DeepSDF
+from nets.deepSDF import DeepSDF
 import json
 from tqdm import tqdm
 import torch
@@ -15,14 +15,22 @@ parser.add_argument('--niter', type=int, help="path to model", default=100)
 
 args = parser.parse_args()
 
+apply_reg = False
+sigma=10
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def criterion(x,y):
+def criterion(x1,x2,latent):
     l1_loss = torch.nn.L1Loss(reduction="sum")
-    Delta = 0.1*torch.ones_like(x)
-    X = torch.minimum(Delta, torch.maximum(-Delta, x))
-    Y = torch.minimum(Delta, torch.maximum(-Delta, y))
-    return l1_loss(X,Y)
+    Delta = 0.1*torch.ones_like(x1)
+    X1 = torch.minimum(Delta, torch.maximum(-Delta, x1))
+    X2 = torch.minimum(Delta, torch.maximum(-Delta, x2))
+    
+    if apply_reg:
+        reg = (1/sigma) * torch.sum(latent**2)
+    else:
+        reg = 9
+    return l1_loss(X1,X2)+reg
 
 model = DeepSDF().to(device)
 checkpoint = torch.load(args.model)
@@ -44,7 +52,7 @@ with open(args.input_json) as f:
     for epoch in tqdm(range(args.niter)):
         data = torch.cat([points, latent.repeat(len(points), 1)], dim=1)
         output = model(data)
-        loss = criterion(output.T[0], sdf)
+        loss = criterion(output.T[0], sdf, latent)
 
         optimizer.zero_grad()
         loss.backward()
