@@ -60,3 +60,6 @@ if __name__ == "__main__":
                     "latent_vecs": lat_vecs.state_dict(),
                     "latent_size": PARAMS["latent_size"],
                     "shapes": model.known_shapes}, model_file)
+
+        logging.info(f"Training, epoch {epoch} finished, train loss: {loss.data.item()}, val loss: {val_loss}")
+

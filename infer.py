@@ -4,6 +4,7 @@ import argparse
 from nets import DeepSDF
 import json
 from tqdm import tqdm
+import torch
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
@@ -16,37 +17,47 @@ args = parser.parse_args()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-criterion = torch.nn.L1Loss()
+def criterion(x,y):
+    l1_loss = torch.nn.L1Loss(reduction="sum")
+    Delta = 0.1*torch.ones_like(x)
+    X = torch.minimum(Delta, torch.maximum(-Delta, x))
+    Y = torch.minimum(Delta, torch.maximum(-Delta, y))
+    return l1_loss(X,Y)
 
 model = DeepSDF().to(device)
-checkpoint = torch.load(LOAD)
+checkpoint = torch.load(args.model)
 model.load_state_dict(checkpoint["model"])
 
-latent = torch.ones(1, checkpoint["latent_size"]).normal_(mean=0, std=0.01)
+latent = torch.ones(checkpoint["latent_size"]).normal_(mean=0, std=0.01).to(device)
 
-optimizer = torch.otim.Adam([latent], lr=args.lr)
+optimizer = torch.optim.Adam([latent], lr=args.lr)
 
 model.eval()
 
+print(f"Opening {args.input_json}")
 with open(args.input_json) as f:
     data = json.load(f)
-    points = data["points"]
-    sdfs = data["sdf"]
+    points = torch.tensor(data["points"]).to(device)
+    sdf = torch.tensor(data["sdf"]).to(device)
 
-    best_Id = 0
+    print(f"Looking for best latent vector...")
     for epoch in tqdm(range(args.niter)):
-        loss = 0
-        for i, point in enumerate(points):
-            point, sdf = torch.tensor(point).to(device), torch.tensor(sdfs[i]).to(device)
-            data = torch.cat([point, latent], dim=1)
-            output = model(data)
-            loss = criterion(output.T[0], sdf)
+        data = torch.cat([points, latent.repeat(len(points), 1)], dim=1)
+        output = model(data)
+        loss = criterion(output.T[0], sdf)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    points = np.array(points)
+    points = points.detach().cpu().numpy()
+    sdf = sdf.detach().cpu().numpy()
     final_sdf = output.T[0].detach().cpu().numpy()
 
-    print(final_sdf)
+    # Color map for plot
+    colors = np.zeros(points.shape)
+    colors[final_sdf < 0, 2] = 1
+    colors[final_sdf > 0, 0] = 1
+
+    pc = trimesh.PointCloud(points, colors)
+    pc.show()
