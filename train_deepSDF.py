@@ -11,19 +11,19 @@ from torch.utils.data import DataLoader, random_split
 import sys
 import logging
 from datetime import datetime
+from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 2048,
+        "batch_size": 4096,
         "data_dir": 'data/preprocessed',
-        "epochs": 8,
+        "epochs": 10,
         "lr": 0.001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
         "delta": 0.1,
-        "sigma": 10,
-        "reg": False,
+        "sigma": 0.1,
         "n_shapes": 500
 }
 
@@ -43,7 +43,7 @@ logging.basicConfig(
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Model
-model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
+model = DeepSDF(n_shapes=PARAMS["n_shapes"], code_dim=PARAMS["latent_size"]).to(device)
 PARAMS["model"] = model.name
 if PARAMS["load"] is not(None):
     checkpoint = torch.load(LOAD)
@@ -51,11 +51,7 @@ if PARAMS["load"] is not(None):
     model.known_shapes = checkpoint["shapes"]
 model.eval()
 
-latent_vectors = torch.ones(PARAMS["n_shapes"], PARAMS["latent_size"]).to(device)
-torch.nn.init.xavier_normal_(latent_vectors)
-
-optimizer = optim.Adam([{"params":model.parameters(), "lr": PARAMS["lr"]},
-                        {"params": [latent_vectors], "lr": PARAMS["lr"]}])
+optimizer = optim.Adam(params=model.parameters(), lr= PARAMS["lr"])
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
@@ -63,16 +59,9 @@ for key, value in PARAMS.items():
 
 logging.info(f"Starting training, with parameters: \n{PARAM_TEXT}")
 
-def criterion(x1, x2):
-    '''
-    Clamped L1 loss
-    '''
-    l1_loss = torch.nn.L1Loss(reduction="sum")
-    Delta = PARAMS["delta"]*torch.ones_like(x1)
-    X1 = torch.minimum(Delta, torch.maximum(-Delta, x1))
-    X2 = torch.minimum(Delta, torch.maximum(-Delta, x2))
+criterion = SDFRegLoss(PARAMS["delta"], PARAMS["sigma"])
 
-    return l1_loss(X1, X2)
+
 
 if __name__ == "__main__":
 
@@ -94,21 +83,25 @@ if __name__ == "__main__":
         for epoch in range(1, PARAMS["epochs"]):
             writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
             model.train()
-            running_loss = []
 
             for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
                 points, sdfs = points.to(device), sdfs.to(device)
 
+                if shape_id==0 and epoch==1 and batch_idx==0:
+                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
+
                 optimizer.zero_grad()
-                output = model(latent_vectors[shape_id], points)
-                loss = criterion(output.T, sdfs)
-                running_loss.append(loss.item())
-            
+                output = model(shape_id, points)
+                loss = criterion(output.T[0], sdfs, model.codes()[shape_id])
+                writer.add_scalar("Train/Loss", loss.item(), global_epoch)
+                
                 iteration += 1
                 loss.backward()
                 optimizer.step()
 
-            writer.add_scalar("Train/Loss", np.mean(running_loss), global_epoch)
+                if shape_id==0:
+                    writer.add_histogram(f"latent_vectors_{shape_id}", model.codes()[shape_id], global_step=epoch)
+
             global_epoch += 1
 
                 #pc_plot = points[-1].unsqueeze(0)

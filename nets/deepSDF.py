@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class DeepSDF(nn.Module):
 
-    def __init__(self, code_dim=256, dim=3, n_layers=8, size=512):
+    def __init__(self, n_shapes, code_dim=256, dim=3, n_layers=8, size=512):
 
         super().__init__()
 
@@ -31,10 +31,19 @@ class DeepSDF(nn.Module):
         last_layers.append(nn.Tanh())
         self.last_layers = nn.Sequential(*last_layers)
 
-        
+        # Last one for inference !
+        self.latent_vectors = torch.nn.Parameter(torch.FloatTensor(n_shapes+1, code_dim))
+        torch.nn.init.xavier_normal_(self.latent_vectors)
 
-    def forward(self, latent_vector, x):
-        code = latent_vector.repeat(x.shape[0], 1)
+    def infer(self):
+        for p in self.first_layers.parameters():
+            p.requires_grad = False
+        for p in self.last_layers.parameters():
+            p.requires_grad = False
+
+    def forward(self, index, x):
+        
+        code = self.latent_vectors[index].repeat(x.shape[0], 1)
         
         data = torch.cat((code, x), dim=1)
         out = self.first_layers(data)

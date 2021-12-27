@@ -6,12 +6,13 @@ import json
 from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
+from utils import SDFRegLoss
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
 parser.add_argument('--input_json', type=str, help="input json")
 parser.add_argument('--model', type=str, help="path to model")
-parser.add_argument('--lr', type=float, help="path to model", default = 0.001)
+parser.add_argument('--lr', type=float, help="path to model", default = 0.01)
 parser.add_argument('--niter', type=int, help="path to model", default=100)
 
 args = parser.parse_args()
@@ -21,22 +22,17 @@ sigma=10
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def criterion(x1,x2):
-    l1_loss = torch.nn.L1Loss(reduction="sum")
-    Delta = 0.1*torch.ones_like(x1)
-    X1 = torch.minimum(Delta, torch.maximum(-Delta, x1))
-    X2 = torch.minimum(Delta, torch.maximum(-Delta, x2))
-    
-    return l1_loss(X1,X2)
+criterion = SDFRegLoss(0.1, 0.1)
 
 checkpoint = torch.load(args.model)
-model = DeepSDF(code_dim=checkpoint["latent_size"]).to(device)
+model = DeepSDF(n_shapes=checkpoint["n_shapes"], code_dim=checkpoint["latent_size"]).to(device)
 model.load_state_dict(checkpoint["model"])
+model.infer()
 
 infer_vector = torch.ones(1, checkpoint["latent_size"]).to(device)
 torch.nn.init.xavier_normal_(infer_vector)
 
-optimizer = torch.optim.Adam([infer_vector], lr=args.lr)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
 print(f"Opening {args.input_json}")
 with open(args.input_json) as f:
@@ -45,10 +41,11 @@ with open(args.input_json) as f:
     sdf = torch.tensor(data["sdf"]).to(device)
 
     print(f"Looking for best latent vector...")
-    model.train()
-    for epoch in tqdm(range(args.niter)):
-        output = model(infer_vector[0], points)
-        loss = criterion(output.T, sdf)
+    for epoch in range(args.niter):
+        output = model(-1, points)
+        loss = criterion(output.T[0], sdf, model.codes()[-1])
+
+        print(loss.item())
         
         optimizer.zero_grad()
         loss.backward()
