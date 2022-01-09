@@ -17,14 +17,15 @@ from utils import SDFRegLoss
 PARAMS = {
         "batch_size": 4096,
         "data_dir": 'data/preprocessed',
-        "epochs": 10,
+        "epochs": 1,
         "lr": 0.001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
         "delta": 0.1,
         "sigma": 0.1,
-        "n_shapes": 500
+        "n_shapes": 5,
+        "global_epochs": 10
 }
 
 # Logger
@@ -32,7 +33,6 @@ now = datetime.now()
 date = now.strftime("%d_%m_%Y-%H_%M_%S")
 log_file = os.path.join(PARAMS["logloc"], f"{date}-training.log")
 logging.basicConfig(
-        encoding='utf-8',
         level=logging.DEBUG,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
@@ -43,15 +43,20 @@ logging.basicConfig(
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Model
-model = DeepSDF(n_shapes=PARAMS["n_shapes"], code_dim=PARAMS["latent_size"]).to(device)
+model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
 PARAMS["model"] = model.name
 if PARAMS["load"] is not(None):
     checkpoint = torch.load(LOAD)
     model.load_state_dict(checkpoint["model"])
     model.known_shapes = checkpoint["shapes"]
-model.eval()
+        
+latent_vectors = torch.FloatTensor(PARAMS["n_shapes"], PARAMS["latent_size"]).to(device)
+torch.nn.init.xavier_normal_(latent_vectors)
+latent_vectors.requires_grad_()
 
-optimizer = optim.Adam(params=model.parameters(), lr= PARAMS["lr"])
+
+optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr"]},
+                        {"params": latent_vectors, "lr": PARAMS["lr"]}])
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
@@ -60,8 +65,6 @@ for key, value in PARAMS.items():
 logging.info(f"Starting training, with parameters: \n{PARAM_TEXT}")
 
 criterion = SDFRegLoss(PARAMS["delta"], PARAMS["sigma"])
-
-
 
 if __name__ == "__main__":
 
@@ -73,45 +76,45 @@ if __name__ == "__main__":
 
     global_epoch = 0
 
-    for shape_id in range(PARAMS["n_shapes"]):
-        # Data loaders
-        global_data = ShapeDataset(PARAMS["data_dir"], shape_id)
-        global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=1)
+    for ge in range(PARAMS["global_epochs"]):
 
-        logging.info(f"Starting training on shape number {shape_id}")
+        for shape_id in range(PARAMS["n_shapes"]):
 
-        for epoch in range(1, PARAMS["epochs"]):
-            writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
-            model.train()
+            loss_glob = 0
+        
+            # Data loaders
+            global_data = ShapeDataset(PARAMS["data_dir"], shape_id)
+            global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
-            for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
-                points, sdfs = points.to(device), sdfs.to(device)
+            logging.info(f"Starting training on shape number {shape_id}")
 
-                if shape_id==0 and epoch==1 and batch_idx==0:
-                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
+            for epoch in range(1, PARAMS["epochs"]+1):
+                writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
+                model.train()
 
-                optimizer.zero_grad()
-                output = model(shape_id, points)
-                loss = criterion(output.T[0], sdfs, model.codes()[shape_id])
-                writer.add_scalar("Train/Loss", loss.item(), global_epoch)
-                
-                iteration += 1
-                loss.backward()
-                optimizer.step()
+                for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
+                    points, sdfs = points.to(device), sdfs.to(device)
+
+    #                if shape_id==0 and epoch==1 and batch_idx==0:
+    #                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
+
+
+                    optimizer.zero_grad()
+                    output = model(latent_vectors[shape_id], points)
+                    loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])
+                    loss_glob += loss.item()/len(points)
+
+                    iteration += 1
+                    loss.backward()
+                    optimizer.step()
 
                 if shape_id==0:
-                    writer.add_histogram(f"latent_vectors_{shape_id}", model.codes()[shape_id], global_step=epoch)
-
+                    writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=ge)
+        
+            writer.add_scalar("Train/Loss", loss_glob/(PARAMS["epochs"]), global_epoch)
             global_epoch += 1
 
-                #pc_plot = points[-1].unsqueeze(0)
-                #final_sdf = output.T[0]
-                #colors = torch.zeros_like(pc_plot)
-                #colors[0,final_sdf < 0, 2] = 255
-                #colors[0,final_sdf > 0, 0] = 255
-                #writer.add_mesh("last_mesh", vertices=pc_plot, colors=colors)
-
-        model_file = os.path.join("checkpoints", f"{model.name}_{shape_id}.pth")
+        model_file = os.path.join("checkpoints", f"{model.name}_{ge}.pth")
         torch.save({"model": model.state_dict(), 
                     "n_shapes": PARAMS["n_shapes"], 
                     "latent_size": PARAMS["latent_size"]}, model_file)

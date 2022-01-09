@@ -77,7 +77,7 @@ if __name__ == "__main__":
         data["points"] = []
         data["id"] = []
         data["sdf"] = []
-        data["id"] = shape_id
+        data["id"] = index
         mesh_name = mesh_list[index]
         path = os.path.join(mesh_path, mesh_name, 'models', 'model_normalized.obj')
         scene = trimesh.load_mesh(path)
@@ -101,8 +101,6 @@ if __name__ == "__main__":
         logging.info(f"Saving {json_path}")
         with open(json_path, 'w') as f:
             json_data = json.dump(data, f)
-
-        shape_id += 1
 
 
     end_time = time.time()
