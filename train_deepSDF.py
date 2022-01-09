@@ -9,24 +9,28 @@ from nets.deepSDF import DeepSDF
 from dataset import ShapeDataset
 from torch.utils.data import DataLoader, random_split
 import sys
+import os
 import logging
 from datetime import datetime
 from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 4096,
+        "batch_size": 65536,
         "data_dir": 'data/preprocessed',
         "epochs": 1,
-        "lr": 0.001,
+        "lr": 0.0001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
         "delta": 0.1,
-        "sigma": 0.1,
-        "n_shapes": 5,
-        "global_epochs": 10
+        "sigma": 0.0001,
+        "n_shapes": 10,
+        "global_epochs": 100
 }
+
+if PARAMS["n_shapes"] is None:
+    PARAMS["n_shapes"] = len(os.listdir(PARAMS["data_dir"]))
 
 # Logger
 now = datetime.now()
@@ -101,8 +105,7 @@ if __name__ == "__main__":
 
                     optimizer.zero_grad()
                     output = model(latent_vectors[shape_id], points)
-                    loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])
-                    loss_glob += loss.item()/len(points)
+                    loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])/PARAMS["epochs"]
 
                     iteration += 1
                     loss.backward()
@@ -111,7 +114,7 @@ if __name__ == "__main__":
                 if shape_id==0:
                     writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=ge)
         
-            writer.add_scalar("Train/Loss", loss_glob/(PARAMS["epochs"]), global_epoch)
+            writer.add_scalar("Train/Loss", loss, global_epoch)
             global_epoch += 1
 
         model_file = os.path.join("checkpoints", f"{model.name}_{ge}.pth")

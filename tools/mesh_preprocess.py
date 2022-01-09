@@ -50,7 +50,6 @@ if __name__ == "__main__":
 
     log_file = os.path.join(args.logloc, f"{date}-mesh_preprocess.log")
     logging.basicConfig(
-            encoding='utf-8',
             level=logging.DEBUG,
             format="%(asctime)s [%(levelname)s] %(message)s",
             handlers=[
@@ -97,7 +96,7 @@ if __name__ == "__main__":
             data["points"].append([X[i], Y[i], Z[i]])
             data["sdf"].append(sdf[i])
 
-        json_path = os.path.join(args.output_data, f"model_{shape_id}.json")
+        json_path = os.path.join(args.output_data, f"model_{index}.json")
         logging.info(f"Saving {json_path}")
         with open(json_path, 'w') as f:
             json_data = json.dump(data, f)
