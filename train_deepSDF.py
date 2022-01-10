@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.optim as optim
 from nets.deepSDF import DeepSDF
 from dataset import ShapeDataset
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import sys
 import os
 import logging
@@ -26,7 +26,7 @@ PARAMS = {
         "delta": 0.1,
         "sigma": 0.0001,
         "n_shapes": 10,
-        "global_epochs": 100
+        "global_epochs": 10000
 }
 
 if PARAMS["n_shapes"] is None:

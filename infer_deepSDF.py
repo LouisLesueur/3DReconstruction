@@ -7,18 +7,21 @@ from tqdm import tqdm
 import torch
 import matplotlib.pyplot as plt
 from utils import SDFRegLoss
+import os
+from dataset import ShapeDataset
+from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
-parser.add_argument('--input_json', type=str, help="input json")
+parser.add_argument('--input_dir', type=str, help="input dir", default = "data/test")
 parser.add_argument('--model', type=str, help="path to model")
 parser.add_argument('--lr', type=float, help="path to model", default = 0.001)
 parser.add_argument('--niter', type=int, help="path to model", default=50)
+parser.add_argument('--batch_size', type=int, help="path to model", default=65536)
 
 args = parser.parse_args()
 
-apply_reg = True
-sigma=10
+N_SHAPES = len(os.listdir(args.input_dir))
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -29,28 +32,31 @@ model = DeepSDF(code_dim=checkpoint["latent_size"]).to(device)
 model.load_state_dict(checkpoint["model"])
 model.eval()
 
-infer_vector = torch.FloatTensor(1, checkpoint["latent_size"]).to(device)
+infer_vector = torch.FloatTensor(N_SHAPES, checkpoint["latent_size"]).to(device)
 torch.nn.init.xavier_normal_(infer_vector)
 infer_vector.requires_grad_()
 
 optimizer = torch.optim.Adam(params=[infer_vector], lr=args.lr)
 
-print(f"Opening {args.input_json}")
-with open(args.input_json) as f:
-    data = json.load(f)
-    points = torch.tensor(data["points"]).to(device)
-    sdf = torch.tensor(data["sdf"]).to(device)
+for shape_id in range(N_SHAPES):
+    # Data loaders
+    global_data = ShapeDataset(args.input_dir, shape_id)
+    global_loader = DataLoader(global_data, batch_size=args.batch_size, num_workers=2)
 
     print(f"Looking for best latent vector...")
     for epoch in range(args.niter):
-        output = model(infer_vector, points)
-        loss = criterion(output.T[0], sdf, infer_vector)
 
-        print(loss.item())
+        for batch_idx, (points, sdfs) in enumerate(global_loader):
+            points, sdfs = points.to(device), sdfs.to(device)
+
+            output = model(infer_vector, points)
+            loss = criterion(output.T[0], sdfs, infer_vector[shape_id])/args.niter
+
+            print(loss.item())
         
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     #line = torch.arange(-1,1,0.1)
     #grid = torch.combinations(line, r=3, with_replacement=True).to(device)

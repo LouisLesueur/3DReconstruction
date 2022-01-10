@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description="Preprocessing meshes for proper tr
 
 parser.add_argument('--input_data', type=str, help="input meshes directory", default="data/raw")
 parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed")
-parser.add_argument('--n_samples', type=int, help="how much points to sample", default=50000)
+parser.add_argument('--n_samples', type=int, help="how much points to sample", default=500000)
 parser.add_argument('--n_shapes', type=int, help="how much points to sample", default=None)
 parser.add_argument('--start_from', type=int, help="start from the i-th file (alpha order)", default=0)
 parser.add_argument('--logloc', type=str, help="logging location", default="logs/")
