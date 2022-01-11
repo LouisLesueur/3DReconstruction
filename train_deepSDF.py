@@ -18,15 +18,15 @@ from utils import SDFRegLoss
 PARAMS = {
         "batch_size": 65536,
         "data_dir": 'data/preprocessed',
-        "epochs": 1,
         "lr": 0.0001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
+        "n_points": None,
         "delta": 0.1,
         "sigma": 0.0001,
-        "n_shapes": 10,
-        "global_epochs": 10000
+        "n_shapes": None,
+        "epochs": 100
 }
 
 if PARAMS["n_shapes"] is None:
@@ -72,52 +72,44 @@ criterion = SDFRegLoss(PARAMS["delta"], PARAMS["sigma"])
 
 if __name__ == "__main__":
 
-    iteration = 0
     writer = SummaryWriter()
     command = ''
 
     writer.add_text("Params", PARAM_TEXT)
 
-    global_epoch = 0
+    iteration = 0
 
-    for ge in range(PARAMS["global_epochs"]):
+    for epoch in range(PARAMS["epochs"]):
 
         for shape_id in range(PARAMS["n_shapes"]):
 
-            loss_glob = 0
-        
             # Data loaders
-            global_data = ShapeDataset(PARAMS["data_dir"], shape_id)
+            global_data = ShapeDataset(PARAMS["data_dir"], shape_id, PARAMS["n_points"])
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
             logging.info(f"Starting training on shape number {shape_id}")
 
-            for epoch in range(1, PARAMS["epochs"]+1):
-                writer.add_scalar("Train/LR", optimizer.param_groups[0]["lr"], epoch)
-                model.train()
+            model.train()
 
-                for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
-                    points, sdfs = points.to(device), sdfs.to(device)
+            for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
+                points, sdfs = points.to(device), sdfs.to(device)
 
-    #                if shape_id==0 and epoch==1 and batch_idx==0:
-    #                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
+#                if shape_id==0 and epoch==1 and batch_idx==0:
+#                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
 
+                optimizer.zero_grad()
+                output = model(latent_vectors[shape_id], points)
+                loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])
+                loss.backward()
+                optimizer.step()
 
-                    optimizer.zero_grad()
-                    output = model(latent_vectors[shape_id], points)
-                    loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])/PARAMS["epochs"]
-
-                    iteration += 1
-                    loss.backward()
-                    optimizer.step()
-
-                if shape_id==0:
-                    writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=ge)
+            if shape_id==0:
+                writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=epoch)
         
-            writer.add_scalar("Train/Loss", loss, global_epoch)
-            global_epoch += 1
+            writer.add_scalar("Train/Loss", loss, iteration)
+            iteration += 1
 
-        model_file = os.path.join("checkpoints", f"{model.name}_{ge}.pth")
-        torch.save({"model": model.state_dict(), 
-                    "n_shapes": PARAMS["n_shapes"], 
+            model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
+            torch.save({"model": model.state_dict(), 
+                        "n_shapes": PARAMS["n_shapes"], 
                     "latent_size": PARAMS["latent_size"]}, model_file)

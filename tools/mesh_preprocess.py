@@ -86,20 +86,23 @@ if __name__ == "__main__":
 
         # Sample points and compute SDF
         logging.info(f"Computing sdf")
-        points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
-        X = points.T[0].tolist()
-        Y = points.T[1].tolist()
-        Z = points.T[2].tolist()
-        sdf = sdf.tolist()
+        try:
+            points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
+            X = points.T[0].tolist()
+            Y = points.T[1].tolist()
+            Z = points.T[2].tolist()
+            sdf = sdf.tolist()
 
-        for i in range(len(points)):
-            data["points"].append([X[i], Y[i], Z[i]])
-            data["sdf"].append(sdf[i])
+            for i in range(len(points)):
+                data["points"].append([X[i], Y[i], Z[i]])
+                data["sdf"].append(sdf[i])
 
-        json_path = os.path.join(args.output_data, f"model_{index}.json")
-        logging.info(f"Saving {json_path}")
-        with open(json_path, 'w') as f:
-            json_data = json.dump(data, f)
+            json_path = os.path.join(args.output_data, f"model_{index}.json")
+            logging.info(f"Saving {json_path}")
+            with open(json_path, 'w') as f:
+                json_data = json.dump(data, f)
+        except:
+            logging.error(f"error with mesh {index}")
 
 
     end_time = time.time()

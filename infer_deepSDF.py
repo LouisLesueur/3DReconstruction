@@ -56,6 +56,7 @@ for shape_id in range(N_SHAPES):
             loss.backward()
             optimizer.step()
 
+
     line = torch.arange(-1,1,0.05)
     grid = torch.cartesian_prod(line,line,line).to(device)
 
@@ -75,5 +76,5 @@ for shape_id in range(N_SHAPES):
 
     colors = red + blue
 
-    pc = trimesh.PointCloud(grid[final_sdf<0], colors[final_sdf<0])
+    pc = trimesh.PointCloud(grid[np.abs(final_sdf)<0.1], colors[np.abs(final_sdf)<0.1])
     pc.show()
