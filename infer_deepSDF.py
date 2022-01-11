@@ -46,39 +46,34 @@ for shape_id in range(N_SHAPES):
     print(f"Looking for best latent vector...")
     for epoch in range(args.niter):
 
-        for batch_idx, (points, sdfs) in enumerate(global_loader):
+        for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
             points, sdfs = points.to(device), sdfs.to(device)
 
             output = model(infer_vector, points)
-            loss = criterion(output.T[0], sdfs, infer_vector[shape_id])/args.niter
+            loss = criterion(output.T[0], sdfs, infer_vector[shape_id])
 
-            print(loss.item())
-        
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-    #line = torch.arange(-1,1,0.1)
-    #grid = torch.combinations(line, r=3, with_replacement=True).to(device)
-    #final_data = torch.concat([grid, latent.repeat(len(grid), 1)], dim=1)
-    #final_output = model(final_data)
-    final_sdf = output.T[0]
+    line = torch.arange(-1,1,0.05)
+    grid = torch.cartesian_prod(line,line,line).to(device)
 
-    #points = grid.detach().cpu().numpy()
-    points = points.detach().cpu().numpy()
+    final_output = model(infer_vector, grid)
+    final_sdf = final_output.T[0]
+
     final_sdf = final_sdf.detach().cpu().numpy()
-    #orig_sdf = sdf.detach().cpu().numpy()
 
     # Color map for plot
-    #norm_sdf = (final_sdf - np.min(final_sdf)) / (np.max(final_sdf) - np.min(final_sdf))
-    colors = np.zeros(points.shape)
+    grid = grid.detach().cpu().numpy()
+    colors = np.zeros(grid.shape)
 
-    red = np.zeros(points.shape)
+    red = np.zeros(grid.shape)
     red.T[0] = (final_sdf-np.min(final_sdf))/(np.max(final_sdf)-np.min(final_sdf))
-    blue = np.zeros(points.shape)
+    blue = np.zeros(grid.shape)
     blue.T[2] = 1 - (final_sdf-np.min(final_sdf))/(np.max(final_sdf)-np.min(final_sdf))
 
     colors = red + blue
 
-    pc = trimesh.PointCloud(points, colors)
+    pc = trimesh.PointCloud(grid[final_sdf<0], colors[final_sdf<0])
     pc.show()
