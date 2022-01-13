@@ -6,7 +6,7 @@ import json
 from torch.utils.data import DataLoader
 
 class ShapeDataset(Dataset):
-    def __init__(self, data_path, shape_id, n_points=None):
+    def __init__(self, data_path, shape_id, occupancy=False, n_points=None):
         self.data_path = data_path
         shapes = os.listdir(self.data_path)
         path = os.path.join(self.data_path, shapes[shape_id])
@@ -20,6 +20,10 @@ class ShapeDataset(Dataset):
             indices = torch.randperm(len(self.sdf))[:n_points]
             self.sdf = self.sdf[indices]
             self.point_cloud = self.point_cloud[indices]
+
+        if occupancy:
+            # Occupancy map: 1 if inside, 0 if outside
+            self.sdf = (self.sdf <= 0).float()
 
     def __len__(self):
         return len(self.sdf)

@@ -1,7 +1,7 @@
 import numpy as np
 import trimesh
 import argparse
-from nets.deepSDF import DeepSDF
+from nets.decoders import DeepSDF
 import json
 from tqdm import tqdm
 import torch
