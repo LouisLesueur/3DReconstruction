@@ -20,11 +20,7 @@ if __name__ == "__main__":
 
         print(f"You are viewing shape number {data['id']}")
 
-        X = np.array(data["x"])
-        Y = np.array(data["y"])
-        Z = np.array(data["z"])
-
-        points = np.array([X,Y,Z]).T
+        points = np.array(data["points"])
         sdf = np.array(data["sdf"])
 
         # Compute occupancy map
