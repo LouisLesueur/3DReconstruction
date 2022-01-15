@@ -21,6 +21,8 @@ class ShapeDataset(Dataset):
             self.sdf = self.sdf[indices]
             self.point_cloud = self.point_cloud[indices]
 
+        self.occupancy = occupancy
+
         if occupancy:
             # Occupancy map: 1 if inside, 0 if outside
             self.sdf = (self.sdf <= 0).float()
@@ -30,3 +32,15 @@ class ShapeDataset(Dataset):
 
     def __getitem__(self, index):
         return self.point_cloud[index], self.sdf[index]
+
+    def get_cloud(self, n_pts=300):
+
+        if self.occupancy:
+            cloud = self.point_cloud[self.sdf==1]
+        else:
+            cloud = self.point_cloud[self.sdf <= 0]
+
+        indices = torch.randperm(len(cloud))[:n_pts]
+
+        return cloud[indices]
+

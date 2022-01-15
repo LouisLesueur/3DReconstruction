@@ -15,11 +15,11 @@ class PointNet(nn.Module):
         hidden_dim (int): hidden dimension of the network
     '''
 
-    def __init__(self, code_dim=128, dim=3, hidden_dim=128):
+    def __init__(self, code_dim=128, n_pts=300, dim=3, hidden_dim=128):
         super().__init__()
         self.code_dim = code_dim
 
-        self.fc_pos = nn.Linear(dim, 2*hidden_dim)
+        self.fc_pos = nn.Linear(n_pts*dim, 2*hidden_dim)
         self.fc_0 = nn.Linear(2*hidden_dim, hidden_dim)
         self.fc_1 = nn.Linear(2*hidden_dim, hidden_dim)
         self.fc_2 = nn.Linear(2*hidden_dim, hidden_dim)
@@ -31,7 +31,7 @@ class PointNet(nn.Module):
 
     def forward(self, p):
         
-        # output size: B x T X F
+        p = p.view(-1).unsqueeze(0)
         net = self.fc_pos(p)
         net = self.fc_0(self.actvn(net))
         pooled = self.pool(net, dim=1, keepdim=True).expand(net.size())

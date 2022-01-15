@@ -13,9 +13,9 @@ class ONet(nn.Module):
         self.encoder = PointNet(code_dim=code_dim)
         self.decoder = ONetDecoder(code_dim=code_dim)
 
-    def forward(self, x):
+    def forward(self, inputs, x):
 
-        code = self.encoder(x)
+        code = self.encoder(inputs)
         logits = self.decoder(code, x)
 
         return torch.sigmoid(logits)

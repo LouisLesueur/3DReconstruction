@@ -74,9 +74,7 @@ if __name__ == "__main__":
     for index in range(shape_id, limit):
         data = {}
         data["points"] = []
-        data["id"] = []
         data["sdf"] = []
-        data["id"] = index
         mesh_name = mesh_list[index]
         path = os.path.join(mesh_path, mesh_name, 'models', 'model_normalized.obj')
         scene = trimesh.load_mesh(path)
@@ -87,7 +85,7 @@ if __name__ == "__main__":
         # Sample points and compute SDF
         logging.info(f"Computing sdf")
         try:
-            points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples)
+            points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples, sign_method='depth')
             X = points.T[0].tolist()
             Y = points.T[1].tolist()
             Z = points.T[2].tolist()
@@ -96,6 +94,7 @@ if __name__ == "__main__":
             for i in range(len(points)):
                 data["points"].append([X[i], Y[i], Z[i]])
                 data["sdf"].append(sdf[i])
+                data["id"] = index
 
             json_path = os.path.join(args.output_data, f"model_{index}.json")
             logging.info(f"Saving {json_path}")

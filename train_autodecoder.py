@@ -16,16 +16,16 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 65536,
+        "batch_size": 1024,
         "data_dir": 'data/preprocessed',
-        "lr": 0.0001,
+        "lr": 0.00001,
         "load": None,
-        "latent_size": 128,
+        "latent_size": 256,
         "logloc": "logs",
-        "n_points": 100000,
+        "n_points": None,
         "delta": 0.1,
         "sigma": 0.0001,
-        "n_shapes": None,
+        "n_shapes": 10,
         "epochs": 100
 }
 

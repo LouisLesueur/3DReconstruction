@@ -16,13 +16,13 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 65536,
+        "batch_size": 16384,
         "data_dir": 'data/preprocessed',
         "lr": 0.0001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
-        "n_points": None,
+        "n_points": 30000,
         "delta": 0.1,
         "sigma": 0.0001,
         "n_shapes": None,
@@ -51,7 +51,7 @@ logging.basicConfig(
         ])
 
 if PARAMS["load"] is not(None):
-    checkpoint = torch.load(LOAD)
+    checkpoint = torch.load(PARAMS["load"])
     model.load_state_dict(checkpoint["model"])
         
 optimizer = optim.Adam(params=model.parameters(), lr=PARAMS["lr"])
@@ -81,7 +81,9 @@ if __name__ == "__main__":
             global_data = ShapeDataset(PARAMS["data_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=True)
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
-            logging.info(f"Starting training on shape number {shape_id}")
+            cloud = global_data.get_cloud().to(device)
+
+            logging.info(f"Starting training on shape number {shape_id}, cloud: {cloud.shape}")
 
             model.train()
 
@@ -92,7 +94,7 @@ if __name__ == "__main__":
 #                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
 
                 optimizer.zero_grad()
-                output = model(points)
+                output = model(cloud, points)
                 loss = criterion(output.T[0], occ)
                 loss.backward()
                 optimizer.step()
