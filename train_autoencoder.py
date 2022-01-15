@@ -16,16 +16,15 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 16384,
+        "batch_size": 2048,
         "data_dir": 'data/preprocessed',
-        "lr": 0.0001,
+        "lr": 0.00001,
         "load": None,
-        "latent_size": 256,
+        "latent_size": 128,
         "logloc": "logs",
-        "n_points": 30000,
-        "delta": 0.1,
-        "sigma": 0.0001,
-        "n_shapes": None,
+        "n_points": None,
+        "n_shapes": 10,
+        "pc_size": 300,
         "epochs": 100
 }
 
@@ -81,7 +80,7 @@ if __name__ == "__main__":
             global_data = ShapeDataset(PARAMS["data_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=True)
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
-            cloud = global_data.get_cloud().to(device)
+            cloud = global_data.get_cloud(PARAMS["pc_size"]).to(device)
 
             logging.info(f"Starting training on shape number {shape_id}, cloud: {cloud.shape}")
 
@@ -106,3 +105,4 @@ if __name__ == "__main__":
             torch.save({"model": model.state_dict(), 
                         "n_shapes": PARAMS["n_shapes"], 
                         "latent_size": PARAMS["latent_size"]}, model_file)
+            logging.info(f"Saving {model_file}")

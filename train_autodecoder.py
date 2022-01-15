@@ -16,7 +16,7 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 1024,
+        "batch_size": 2048,
         "data_dir": 'data/preprocessed',
         "lr": 0.00001,
         "load": None,
@@ -25,7 +25,7 @@ PARAMS = {
         "n_points": None,
         "delta": 0.1,
         "sigma": 0.0001,
-        "n_shapes": 10,
+        "n_shapes": None,
         "epochs": 100
 }
 
@@ -117,3 +117,4 @@ if __name__ == "__main__":
             torch.save({"model": model.state_dict(), 
                         "n_shapes": PARAMS["n_shapes"], 
                         "latent_size": PARAMS["latent_size"]}, model_file)
+            logging.info(f"Saving {model_file}")
