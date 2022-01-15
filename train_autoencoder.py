@@ -17,15 +17,18 @@ from utils import SDFRegLoss
 # Training parameters
 PARAMS = {
         "batch_size": 2048,
-        "data_dir": 'data/preprocessed',
+        "train_dir": 'data/preprocessed/train',
+        "val_dir": 'data/preprocessed/val',
         "lr": 0.00001,
         "load": None,
-        "latent_size": 128,
+        "latent_size": 256,
         "logloc": "logs",
         "n_points": None,
-        "n_shapes": 10,
+        "n_shapes": 5,
         "pc_size": 300,
-        "epochs": 100
+        "epochs": 100,
+        "save_frec": 25,
+        "occupancy": True
 }
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,7 +38,7 @@ model = ONet(code_dim=PARAMS["latent_size"]).to(device)
 PARAMS["model"] = model.name
 
 if PARAMS["n_shapes"] is None:
-    PARAMS["n_shapes"] = len(os.listdir(PARAMS["data_dir"]))
+    PARAMS["n_shapes"] = len(os.listdir(PARAMS["train_dir"]))
 
 # Logger
 now = datetime.now()
@@ -61,11 +64,47 @@ for key, value in PARAMS.items():
 
 logging.info(f"Starting training, with parameters: \n{PARAM_TEXT}")
 
-criterion = torch.nn.BCELoss()
+if PARAMS["occupancy"]:
+    criterion = torch.nn.BCEWithLogitsLoss()
+else:
+    criterion = SDFRegLoss(PARAMS["delta"], PARAMS["sigma"])
+
+
+writer = SummaryWriter()
+
+
+def validate(epoch):
+
+    model.eval()
+
+    with torch.no_grad():
+
+        val_loss = 0
+        logging.info(f"Validation step ...")
+
+        for shape_id in tqdm(range(len(os.listdir(PARAMS["val_dir"])))):
+
+            # Data loaders
+            global_data = ShapeDataset(PARAMS["val_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=PARAMS["occupancy"])
+            global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
+
+            cloud = global_data.get_cloud(PARAMS["pc_size"]).to(device)
+
+
+            for batch_idx, (points, occ) in enumerate(global_loader):
+                points, occ = points.to(device), occ.to(device)
+
+#                if shape_id==0 and epoch==1 and batch_idx==0:
+#                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
+
+                output = model(cloud, points)
+                val_loss += criterion(output.T[0], occ)
+
+    return val_loss/len(os.listdir(PARAMS["val_dir"]))
+
 
 if __name__ == "__main__":
 
-    writer = SummaryWriter()
     command = ''
 
     writer.add_text("Params", PARAM_TEXT)
@@ -74,10 +113,12 @@ if __name__ == "__main__":
 
     for epoch in range(PARAMS["epochs"]):
 
+        model.train()
+
         for shape_id in range(PARAMS["n_shapes"]):
 
             # Data loaders
-            global_data = ShapeDataset(PARAMS["data_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=True)
+            global_data = ShapeDataset(PARAMS["train_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=PARAMS["occupancy"])
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
             cloud = global_data.get_cloud(PARAMS["pc_size"]).to(device)
@@ -101,8 +142,13 @@ if __name__ == "__main__":
             writer.add_scalar("Train/Loss", loss, iteration)
             iteration += 1
 
-            model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
-            torch.save({"model": model.state_dict(), 
-                        "n_shapes": PARAMS["n_shapes"], 
-                        "latent_size": PARAMS["latent_size"]}, model_file)
-            logging.info(f"Saving {model_file}")
+            if iteration % PARAMS["save_frec"] == 0:
+
+                model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
+                torch.save({"model": model.state_dict(), 
+                            "n_shapes": PARAMS["n_shapes"], 
+                            "latent_size": PARAMS["latent_size"]}, model_file)
+                logging.info(f"Saving {model_file}")
+
+        val_loss = validate(epoch)
+        writer.add_scalar("Val/Loss", val_loss, epoch)

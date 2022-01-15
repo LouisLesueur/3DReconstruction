@@ -18,4 +18,4 @@ class ONet(nn.Module):
         code = self.encoder(inputs)
         logits = self.decoder(code, x)
 
-        return torch.sigmoid(logits)
+        return logits

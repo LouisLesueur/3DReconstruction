@@ -15,7 +15,7 @@ import ChamferDistancePytorch.chamfer3D.dist_chamfer_3D, ChamferDistancePytorch.
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
-parser.add_argument('--input_dir', type=str, help="input dir", default = "data/test")
+parser.add_argument('--input_dir', type=str, help="input dir", default = "data/preprocessed/test")
 parser.add_argument('--model', type=str, help="path to model")
 parser.add_argument('--batch_size', type=int, help="path to model", default=65536)
 parser.add_argument('--n_points', type=int, help="path to model", default=10000)
@@ -45,7 +45,7 @@ for shape_id in range(N_SHAPES):
     line = torch.linspace(-1,1,pts_per_dim)
     grid = torch.cartesian_prod(line,line,line).to(device)
     output = model(input_cloud, grid)
-    occ_logits = output.T[0]
+    occ_logits = torch.sigmoid(output.T[0])
     occ = torch.zeros_like(occ_logits)
     occ[occ_logits>=0.5] = 1
     occ = occ.view((pts_per_dim, pts_per_dim, pts_per_dim)).detach().cpu().numpy()

@@ -16,7 +16,7 @@ import ChamferDistancePytorch.chamfer3D.dist_chamfer_3D, ChamferDistancePytorch.
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
-parser.add_argument('--input_dir', type=str, help="input dir", default = "data/test")
+parser.add_argument('--input_dir', type=str, help="input dir", default = "data/preprocessed/test")
 parser.add_argument('--model', type=str, help="path to model")
 parser.add_argument('--lr', type=float, help="path to model", default = 0.0001)
 parser.add_argument('--niter', type=int, help="path to model", default=2)

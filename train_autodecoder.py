@@ -26,7 +26,8 @@ PARAMS = {
         "delta": 0.1,
         "sigma": 0.0001,
         "n_shapes": None,
-        "epochs": 100
+        "epochs": 100,
+        "save_frec": 25
 }
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -113,8 +114,9 @@ if __name__ == "__main__":
             writer.add_scalar("Train/Loss", loss, iteration)
             iteration += 1
 
-            model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
-            torch.save({"model": model.state_dict(), 
-                        "n_shapes": PARAMS["n_shapes"], 
-                        "latent_size": PARAMS["latent_size"]}, model_file)
-            logging.info(f"Saving {model_file}")
+            if iteration % PARAMS["save_frec"] == 0:
+                model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
+                torch.save({"model": model.state_dict(), 
+                            "n_shapes": PARAMS["n_shapes"], 
+                            "latent_size": PARAMS["latent_size"]}, model_file)
+                logging.info(f"Saving {model_file}")
