@@ -49,8 +49,6 @@ for shape_id in range(N_SHAPES):
     global_data = ShapeDataset(args.input_dir, shape_id)
     global_loader = DataLoader(global_data, batch_size=args.batch_size, num_workers=2)
 
-    global_data.split(0)
-    
     cloud = global_data.get_cloud(args.n_points)
     pc = trimesh.PointCloud(cloud, colors=[0,1,0])
 

@@ -57,6 +57,8 @@ $$|
 
 # Neural networks approaches
 
++ Idea: learn a shape representation in a latent space, and use it to compute SDF/Occupancy map on every point of the space
+
 | Auto-decoder (DeepSDF) | Auto-encoder (ONet)
 |-|-
 | ![](imgs/autodecoder.png){width=40%} | ![](imgs/autoencoder.png){width=45%}
@@ -84,13 +86,13 @@ $$|
 	\endminipage\hfill
 \end{figure}
 
-|  | mean chamfer | precision | recall
+|  | Chamfer | precision | recall
 |-|-|-|-
-|DeepSDF |    ||
-|ONet |||
+|DeepSDF |  0.09  | 0.82  | 0.81
+|ONet |0.1 (0.079 in original paper)| 0.75 | 0.87
 
 
-# Visuals
+# Visuals (point cloud completion)
 
 \begin{figure}[!htb]
 	\minipage{0.22\textwidth}

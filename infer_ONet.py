@@ -36,8 +36,6 @@ for shape_id in range(N_SHAPES):
     global_data = ShapeDataset(args.input_dir, shape_id, occupancy=True)
     global_loader = DataLoader(global_data, batch_size=args.batch_size, num_workers=2)
 
-    global_data.split(0)
-
     input_cloud = global_data.get_cloud().to(device)
     cloud = global_data.get_cloud(args.n_points)
     pc = trimesh.PointCloud(cloud)
@@ -66,4 +64,7 @@ for shape_id in range(N_SHAPES):
     chamLoss = ChamferDistancePytorch.chamfer3D.dist_chamfer_3D.chamfer_3DDist()
     dist1, dist2, idx1, idx2 = chamLoss(cloud.float().unsqueeze(0).to(device), torch.tensor(cloud2).float().unsqueeze(0).to(device))
     f_score, precision, recall = ChamferDistancePytorch.fscore.fscore(dist1, dist2)
+
+    print(torch.mean(dist1), torch.mean(dist2))
+    print(precision, recall)
 
