@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from nets.blocks import ResBlock
+from nets.blocks import *
 
 class DeepSDF(nn.Module):
 
@@ -42,7 +42,7 @@ class DeepSDF(nn.Module):
         out = self.first_layers(code + point)
         out = self.last_layers(out+code+point)
         
-        return out
+        return out.squeeze(0)
 
 class ONetDecoder(nn.Module):
     ''' Decoder class for occupancy network. Inspired by:
@@ -54,30 +54,34 @@ class ONetDecoder(nn.Module):
         hidden_size (int): hidden size of Decoder network
     '''
 
-    def __init__(self, code_dim=128, dim=3, size=128):
+    def __init__(self, dim=3, code_dim=128,
+                 hidden_size=256):
         super().__init__()
-        self.code_dim = code_dim
-        self.dim = dim
 
-        self.name = "OccupancyNet"
+        self.fc_p = nn.Conv1d(dim, hidden_size, 1)
+        self.block0 = CResnetBlockConv1d(code_dim, hidden_size)
+        self.block1 = CResnetBlockConv1d(code_dim, hidden_size)
+        self.block2 = CResnetBlockConv1d(code_dim, hidden_size)
+        self.block3 = CResnetBlockConv1d(code_dim, hidden_size)
+        self.block4 = CResnetBlockConv1d(code_dim, hidden_size)
 
-        self.latent_layer = nn.Linear(code_dim, size)
-        self.point_layer = nn.Linear(dim, size)
+        self.bn = CBatchNorm1d(code_dim, hidden_size)
 
-        self.hidden_layers = nn.Sequential(
-                ResBlock(size),
-                ResBlock(size),
-                ResBlock(size),
-                ResBlock(size),
-                ResBlock(size),
-                nn.ReLU(),
-                nn.Linear(size, 1)
-                )
+        self.fc_out = nn.Conv1d(hidden_size, 1, 1)
+        self.actvn = nn.ReLU()
 
     def forward(self, latent_vector, x):
 
-        code = self.latent_layer(latent_vector)
-        point = self.point_layer(x)
+        x = x.T.unsqueeze(0)
+        
+        net = self.fc_p(x)
 
-        out = self.hidden_layers(point+code)
-        return out
+        net = self.block0(net, latent_vector)
+        net = self.block1(net, latent_vector)
+        net = self.block2(net, latent_vector)
+        net = self.block3(net, latent_vector)
+        net = self.block4(net, latent_vector)
+
+        out = self.fc_out(self.actvn(self.bn(net, latent_vector)))
+
+        return out.squeeze(0).squeeze(0)

@@ -20,7 +20,7 @@ parser.add_argument('--input_dir', type=str, help="input dir", default = "data/p
 parser.add_argument('--model', type=str, help="path to model")
 parser.add_argument('--lr', type=float, help="path to model", default = 0.0001)
 parser.add_argument('--niter', type=int, help="path to model", default=2)
-parser.add_argument('--batch_size', type=int, help="path to model", default=1024)
+parser.add_argument('--batch_size', type=int, help="path to model", default=4096)
 parser.add_argument('--n_points', type=int, help="path to model", default=10000)
 
 args = parser.parse_args()
@@ -49,43 +49,58 @@ for shape_id in range(N_SHAPES):
     global_data = ShapeDataset(args.input_dir, shape_id)
     global_loader = DataLoader(global_data, batch_size=args.batch_size, num_workers=2)
 
+    global_data.split(0)
+    
     cloud = global_data.get_cloud(args.n_points)
-    pc = trimesh.PointCloud(cloud)
-    pc.show()
+    pc = trimesh.PointCloud(cloud, colors=[0,1,0])
+
+    LOSS = []
 
 
     print(f"Looking for best latent vector...")
     for epoch in range(args.niter):
 
+        save_loss = 0
+
         for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
             points, sdfs = points.to(device), sdfs.to(device)
 
             output = model(infer_vector, points)
-            loss = criterion(output.T[0], sdfs, infer_vector[shape_id])
+            loss = criterion(output, sdfs, infer_vector[shape_id])
+
+            save_loss += loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        
+        LOSS.append(save_loss/len(global_data))
 
-    pts_per_dim = 40
+    plt.plot(LOSS)
+    plt.show()
+
+    pts_per_dim = 50
     line = torch.linspace(-1,1,pts_per_dim)
     grid = torch.cartesian_prod(line,line,line).to(device)
     final_output = model(infer_vector, grid)
-    final_sdf = final_output.T[0]
+    
+    final_sdf = torch.zeros_like(final_output)
+    final_sdf[final_output < 0.01] = 1
     final_sdf = final_sdf.view((pts_per_dim, pts_per_dim, pts_per_dim)).detach().cpu().numpy()
 
-    vertices, triangles = mcubes.marching_cubes(final_sdf, 0.01)
+    final_sdf = mcubes.smooth(final_sdf)
+    vertices, triangles = mcubes.marching_cubes(final_sdf, 0.5)
 
     # Normalisation for Chamfer
     vertices = np.array(vertices)
     vertices = -1 + (((vertices-0)*2)/(pts_per_dim-0))
-
     mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
     cloud2,_ =  trimesh.sample.sample_surface(mesh, args.n_points)
-    pc = trimesh.PointCloud(cloud2)
-    pc.show()
-
-    #mesh.show()
+    
+    scene = trimesh.Scene()
+    scene.add_geometry(pc)
+    scene.add_geometry(mesh)
+    scene.show()
 
     chamLoss = ChamferDistancePytorch.chamfer3D.dist_chamfer_3D.chamfer_3DDist()
     dist1, dist2, idx1, idx2 = chamLoss(cloud.float().unsqueeze(0).to(device), torch.tensor(cloud2).float().unsqueeze(0).to(device))

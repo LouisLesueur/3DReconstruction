@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from nets.encoders import *
 from nets.decoders import *
+from torch import distributions as dist
 
 class ONet(nn.Module):
 

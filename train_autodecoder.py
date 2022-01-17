@@ -17,7 +17,7 @@ from utils import SDFRegLoss
 # Training parameters
 PARAMS = {
         "batch_size": 2048,
-        "data_dir": 'data/preprocessed',
+        "data_dir": 'data/preprocessed/train',
         "lr": 0.00001,
         "load": None,
         "latent_size": 256,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
                 optimizer.zero_grad()
                 output = model(latent_vectors[shape_id], points)
-                loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])
+                loss = criterion(output, sdfs, latent_vectors[shape_id])
                 loss.backward()
                 optimizer.step()
 

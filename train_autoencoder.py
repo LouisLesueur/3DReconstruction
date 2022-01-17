@@ -16,15 +16,15 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 2048,
+        "batch_size": 64,
         "train_dir": 'data/preprocessed/train',
         "val_dir": 'data/preprocessed/val',
-        "lr": 0.00001,
+        "lr": 0.000001,
         "load": None,
-        "latent_size": 256,
+        "latent_size": 512,
         "logloc": "logs",
-        "n_points": None,
-        "n_shapes": 5,
+        "n_points": 4096,
+        "n_shapes": 10,
         "pc_size": 300,
         "epochs": 100,
         "save_frec": 25,
@@ -80,16 +80,17 @@ def validate(epoch):
     with torch.no_grad():
 
         val_loss = 0
+        val_acc = 0
         logging.info(f"Validation step ...")
 
-        for shape_id in tqdm(range(len(os.listdir(PARAMS["val_dir"])))):
+        n_shp = len(os.listdir(PARAMS["val_dir"]))
+        for shape_id in tqdm(range(n_shp)):
 
             # Data loaders
-            global_data = ShapeDataset(PARAMS["val_dir"], shape_id, n_points=PARAMS["n_points"], occupancy=PARAMS["occupancy"])
-            global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
+            global_data = ShapeDataset(PARAMS["val_dir"], shape_id, occupancy=PARAMS["occupancy"])
+            global_loader = DataLoader(global_data, batch_size=4096, num_workers=2)
 
             cloud = global_data.get_cloud(PARAMS["pc_size"]).to(device)
-
 
             for batch_idx, (points, occ) in enumerate(global_loader):
                 points, occ = points.to(device), occ.to(device)
@@ -98,9 +99,11 @@ def validate(epoch):
 #                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
 
                 output = model(cloud, points)
-                val_loss += criterion(output.T[0], occ)
+                val_loss += criterion(output, occ)/len(global_data)
+                pred = torch.round(torch.sigmoid(output))
+                val_acc += (pred==occ).sum().float()/len(global_data)
 
-    return val_loss/len(os.listdir(PARAMS["val_dir"]))
+    return val_loss/n_shp, val_acc/n_shp
 
 
 if __name__ == "__main__":
@@ -122,7 +125,7 @@ if __name__ == "__main__":
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
 
             cloud = global_data.get_cloud(PARAMS["pc_size"]).to(device)
-
+                    
             logging.info(f"Starting training on shape number {shape_id}, cloud: {cloud.shape}")
 
             model.train()
@@ -135,12 +138,12 @@ if __name__ == "__main__":
 
                 optimizer.zero_grad()
                 output = model(cloud, points)
-                loss = criterion(output.T[0], occ)
+                loss = criterion(output, occ)
                 loss.backward()
                 optimizer.step()
 
-            writer.add_scalar("Train/Loss", loss, iteration)
-            iteration += 1
+                writer.add_scalar("Train/Loss", loss, iteration)
+                iteration += 1
 
             if iteration % PARAMS["save_frec"] == 0:
 
@@ -150,5 +153,6 @@ if __name__ == "__main__":
                             "latent_size": PARAMS["latent_size"]}, model_file)
                 logging.info(f"Saving {model_file}")
 
-        val_loss = validate(epoch)
+        val_loss, val_acc = validate(epoch)
         writer.add_scalar("Val/Loss", val_loss, epoch)
+        writer.add_scalar("Val/Acc", val_acc, epoch)
