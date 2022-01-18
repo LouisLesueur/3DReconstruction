@@ -88,8 +88,8 @@ $$|
 
 |  | Chamfer | precision | recall
 |-|-|-|-
-|DeepSDF |  0.09  | 0.82  | 0.81
-|ONet |0.1 (0.079 in original paper)| 0.75 | 0.87
+|DeepSDF |  0.09  | 0.77  | 0.64
+|ONet |0.1 (0.079 in original paper)| 0.75 | 0.67
 
 
 # Visuals (point cloud completion)
@@ -114,7 +114,7 @@ $$|
 
 # Conclusions
 
-+ Train on a bigger dataset
++ Train on a bigger dataset 
 + Try other encoder architectures (for single view reconstruction in particular)
 + Train autoencoder on SDF and autodecoder on occupancy
 
