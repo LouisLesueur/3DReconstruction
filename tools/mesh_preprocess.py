@@ -1,19 +1,22 @@
 import trimesh
-from mesh_to_sdf import sample_sdf_near_surface
 import argparse
 import os
 import time
 import json
-import numpy as np
+import torch
 import logging
 import sys
 from datetime import datetime
+from pysdf import SDF
+import numpy as np
 
 parser = argparse.ArgumentParser(description="Preprocessing meshes for proper training")
 
 parser.add_argument('--input_data', type=str, help="input meshes directory", default="data/raw")
-parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed")
-parser.add_argument('--n_samples', type=int, help="how much points to sample", default=500000)
+parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed/train")
+parser.add_argument('--n_samples', type=int, help="how much points to sample", default=100000)
+parser.add_argument('--prop', type=int, help="proportion of surface points", default=0.5)
+parser.add_argument('--sigma', type=int, help="noise to add", default=0.001)
 parser.add_argument('--n_shapes', type=int, help="how much points to sample", default=None)
 parser.add_argument('--start_from', type=int, help="start from the i-th file (alpha order)", default=0)
 parser.add_argument('--logloc', type=str, help="logging location", default="logs/")
@@ -47,6 +50,9 @@ if __name__ == "__main__":
 
     now = datetime.now()
     date = now.strftime("%d_%m_%Y-%H_%M_%S")
+
+    N_surface = int(args.prop*args.n_samples)
+    N_other = args.n_samples - N_surface
 
     log_file = os.path.join(args.logloc, f"{date}-mesh_preprocess.log")
     logging.basicConfig(
@@ -84,8 +90,19 @@ if __name__ == "__main__":
 
         # Sample points and compute SDF
         logging.info(f"Computing sdf")
+
+        surface_points = mesh.sample(N_surface)
+        if args.sigma is not None:
+            surface_points += args.sigma*np.random.randn(N_surface, 3)
+        other_points = np.random.randn(N_other, 3)
+
+        points = np.concatenate((surface_points, other_points))
+
         try:
-            points, sdf = sample_sdf_near_surface(mesh, number_of_points=args.n_samples, sign_method='depth')
+            f = SDF(mesh.vertices, mesh.faces)
+
+            sdf = f(points)
+            
             X = points.T[0].tolist()
             Y = points.T[1].tolist()
             Z = points.T[2].tolist()

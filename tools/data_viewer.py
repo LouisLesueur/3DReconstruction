@@ -1,6 +1,5 @@
 import numpy as np
 import trimesh
-from mesh_to_sdf import sample_sdf_near_surface
 import argparse
 import os
 from tqdm import tqdm
