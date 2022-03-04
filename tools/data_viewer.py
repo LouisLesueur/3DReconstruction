@@ -26,13 +26,10 @@ if __name__ == "__main__":
         points = np.array(data["points"])
         sdf = np.array(data["sdf"])
 
-        # Compute occupancy map
-        oc = np.zeros(sdf.shape)
-        oc[sdf<0] = 1
-
         # Color map for plot
         colors = np.zeros(points.shape)
         colors[sdf < 0, 2] = 1
+        colors[sdf==0, 1] = 1
         colors[sdf > 0, 0] = 1
 
         original = os.path.join(mesh_files, mesh_list[data['id']], 'models', 'model_normalized.obj')

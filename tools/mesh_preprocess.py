@@ -16,7 +16,7 @@ parser.add_argument('--input_data', type=str, help="input meshes directory", def
 parser.add_argument('--output_data', type=str, help="output meshes directory", default="data/preprocessed/train")
 parser.add_argument('--n_samples', type=int, help="how much points to sample", default=100000)
 parser.add_argument('--prop', type=int, help="proportion of surface points", default=0.5)
-parser.add_argument('--sigma', type=int, help="noise to add", default=0.001)
+parser.add_argument('--sigma', type=int, help="noise to add", default=None)
 parser.add_argument('--n_shapes', type=int, help="how much points to sample", default=None)
 parser.add_argument('--start_from', type=int, help="start from the i-th file (alpha order)", default=0)
 parser.add_argument('--logloc', type=str, help="logging location", default="logs/")

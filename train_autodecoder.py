@@ -16,16 +16,17 @@ from utils import SDFRegLoss
 
 # Training parameters
 PARAMS = {
-        "batch_size": 2048,
+        "batch_size": 4096,
         "data_dir": 'data/preprocessed/train',
-        "lr": 0.00001,
+        "lr_latent": 0.0000001,
+        "lr_model": 0.001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
         "n_points": None,
         "delta": 0.1,
-        "sigma": 0.0001,
-        "n_shapes": None,
+        "sigma": 1,
+        "n_shapes": 50,
         "epochs": 100,
         "save_frec": 25
 }
@@ -33,7 +34,7 @@ PARAMS = {
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Model
-model = DeepSDF(code_dim=PARAMS["latent_size"]).to(device)
+model = DeepSDF(code_dim=PARAMS["latent_size"], size=512).to(device)
 #model = OccupancyNet(code_dim=PARAMS["latent_size"]).to(device)
 
 PARAMS["model"] = model.name
@@ -60,12 +61,12 @@ if PARAMS["load"] is not(None):
     model.known_shapes = checkpoint["shapes"]
         
 latent_vectors = torch.FloatTensor(PARAMS["n_shapes"], PARAMS["latent_size"]).to(device)
-torch.nn.init.xavier_normal_(latent_vectors)
+torch.nn.init.uniform_(latent_vectors)
 latent_vectors.requires_grad_()
 
 
-optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr"]},
-                        {"params": latent_vectors, "lr": PARAMS["lr"]}])
+optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr_latent"]},
+                        {"params": latent_vectors, "lr": PARAMS["lr_model"]}])
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
@@ -88,6 +89,7 @@ if __name__ == "__main__":
 
         for shape_id in range(PARAMS["n_shapes"]):
 
+
             # Data loaders
             global_data = ShapeDataset(PARAMS["data_dir"], shape_id, n_points=PARAMS["n_points"])
             global_loader = DataLoader(global_data, batch_size=PARAMS["batch_size"], num_workers=2)
@@ -101,18 +103,24 @@ if __name__ == "__main__":
 
 #                if shape_id==0 and epoch==1 and batch_idx==0:
 #                    writer.add_graph(model, input_to_model=(torch.tensor(shape_id), points))
-
                 optimizer.zero_grad()
+
                 output = model(latent_vectors[shape_id], points)
-                loss = criterion(output, sdfs, latent_vectors[shape_id])
+                loss = criterion(output.T[0], sdfs, latent_vectors[shape_id])
+                
+                writer.add_scalar("Train/L1Loss", criterion.shape_loss, iteration)
+                writer.add_scalar("Train/RegLoss", criterion.reg_loss, iteration)
+                writer.add_scalar("Train/Loss", loss, iteration)
+                
                 loss.backward()
+
                 optimizer.step()
+            iteration += 1
+        
 
             if shape_id==0:
                 writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=epoch)
         
-            writer.add_scalar("Train/Loss", loss, iteration)
-            iteration += 1
 
             if iteration % PARAMS["save_frec"] == 0:
                 model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")

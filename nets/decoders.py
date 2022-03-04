@@ -21,14 +21,14 @@ class DeepSDF(nn.Module):
 
         first_layers = [nn.Linear(size, size)]
         for _ in range(med_layer):
-            first_layers.append(nn.ReLU(True))
+            first_layers.append(nn.ReLU())
             first_layers.append(nn.Linear(size,size))
         self.first_layers = nn.Sequential(*first_layers)
 
         last_layers = []
         for _ in range(n_layers-med_layer-1):
             last_layers.append(nn.Linear(size,size))
-            last_layers.append(nn.ReLU(True))
+            last_layers.append(nn.ReLU())
         last_layers.append(nn.Linear(size,1))
         last_layers.append(nn.Tanh())
         self.last_layers = nn.Sequential(*last_layers)
@@ -42,7 +42,7 @@ class DeepSDF(nn.Module):
         out = self.first_layers(code + point)
         out = self.last_layers(out+code+point)
         
-        return out.squeeze(0)
+        return out
 
 class ONetDecoder(nn.Module):
     ''' Decoder class for occupancy network. Inspired by:
