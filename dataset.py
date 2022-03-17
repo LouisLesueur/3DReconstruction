@@ -35,7 +35,7 @@ class ShapeDataset(Dataset):
         if occupancy:
             # Occupancy map: 1 if inside, 0 if outside
             occ = torch.zeros_like(self.sdf)
-            occ[self.sdf<=0.01] = 1
+            occ[self.sdf<=0] = 1
             self.sdf = occ.float()
 
     def split(self, x):
@@ -57,4 +57,4 @@ class ShapeDataset(Dataset):
 
         indices = torch.randperm(len(cloud))[:n_pts]
 
-        return cloud[indices]
+        return cloud[indices].T

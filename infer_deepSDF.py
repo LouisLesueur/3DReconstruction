@@ -18,8 +18,8 @@ parser = argparse.ArgumentParser(description="Preprocessing meshes for proper tr
 parser.add_argument('--input_dir', type=str, help="input dir", default = "data/preprocessed/test")
 parser.add_argument('--model', type=str, help="path to model")
 parser.add_argument('--lr', type=float, help="path to model", default = 0.01)
-parser.add_argument('--niter', type=int, help="path to model", default=20)
-parser.add_argument('--batch_size', type=int, help="path to model", default=4096)
+parser.add_argument('--niter', type=int, help="path to model", default=10)
+parser.add_argument('--batch_size', type=int, help="path to model", default=2048)
 parser.add_argument('--n_points', type=int, help="path to model", default=None)
 
 args = parser.parse_args()
@@ -28,7 +28,7 @@ N_SHAPES = len(os.listdir(args.input_dir))
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-criterion = SDFRegLoss(0.1, 1)
+criterion = SDFRegLoss(0.1, 0.1)
 
 checkpoint = torch.load(args.model)
 model = DeepSDF(code_dim=checkpoint["latent_size"], size=512).to(device)
@@ -81,17 +81,17 @@ for shape_id in range(N_SHAPES):
     grid = torch.cartesian_prod(line,line,line).to(device)
     final_output = model(infer_vector, grid)
 
-#    colors = np.zeros(grid.shape)
-#    final_output = final_output.T[0].detach().cpu().numpy()
+    colors = np.zeros(grid.shape)
+    final_output = final_output.T[0].detach().cpu().numpy()
 
-#    lambada = (final_output-np.min(final_output))/(np.max(final_output)-np.min(final_output))
+    lambada = (final_output-np.min(final_output))/(np.max(final_output)-np.min(final_output))
 
-#    colors.T[0] = lambada
-#    colors.T[2] = (1-lambada)
+    colors.T[0] = lambada
+    colors.T[2] = (1-lambada)
 
-#    pctest = trimesh.PointCloud(grid.detach().cpu().numpy(), colors)
-#    pctest.show()
-#    print("aaaa", np.mean(final_output), np.max(final_output))
+    pctest = trimesh.PointCloud(grid.detach().cpu().numpy(), colors)
+    pctest.show()
+    print("aaaa", np.mean(final_output), np.max(final_output))
 
 #    final_sdf = torch.zeros_like(final_output)
     final_sdf = final_output.view((pts_per_dim, pts_per_dim, pts_per_dim)).detach().cpu().numpy()

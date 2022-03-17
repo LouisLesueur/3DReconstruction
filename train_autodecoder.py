@@ -18,15 +18,15 @@ from utils import SDFRegLoss
 PARAMS = {
         "batch_size": 4096,
         "data_dir": 'data/preprocessed/train',
-        "lr_latent": 0.0000001,
-        "lr_model": 0.001,
+        "lr_latent": 0.000001,
+        "lr_model": 0.00001,
         "load": None,
         "latent_size": 256,
         "logloc": "logs",
         "n_points": None,
         "delta": 0.1,
-        "sigma": 1,
-        "n_shapes": 50,
+        "sigma": 0.1,
+        "n_shapes": None,
         "epochs": 100,
         "save_frec": 25
 }
@@ -66,7 +66,7 @@ latent_vectors.requires_grad_()
 
 
 optimizer = optim.Adam([{"params": model.parameters(), "lr": PARAMS["lr_latent"]},
-                        {"params": latent_vectors, "lr": PARAMS["lr_model"]}])
+                        {"params": latent_vectors}], lr=PARAMS["lr_model"])
 
 PARAM_TEXT = ""
 for key, value in PARAMS.items():
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     writer.add_text("Params", PARAM_TEXT)
 
     iteration = 0
+    global_iteration = 0
 
     for epoch in range(PARAMS["epochs"]):
 
@@ -98,6 +99,8 @@ if __name__ == "__main__":
 
             model.train()
 
+            shape_loss = 0
+
             for batch_idx, (points, sdfs) in enumerate(tqdm(global_loader)):
                 points, sdfs = points.to(device), sdfs.to(device)
 
@@ -111,20 +114,25 @@ if __name__ == "__main__":
                 writer.add_scalar("Train/L1Loss", criterion.shape_loss, iteration)
                 writer.add_scalar("Train/RegLoss", criterion.reg_loss, iteration)
                 writer.add_scalar("Train/Loss", loss, iteration)
+                iteration += 1
                 
                 loss.backward()
 
+                shape_loss += loss
+
                 optimizer.step()
-            iteration += 1
-        
+
+            writer.add_scalar("Train/ShapeLoss", shape_loss/len(global_loader), global_iteration)
 
             if shape_id==0:
                 writer.add_histogram(f"latent_vectors_{shape_id}", latent_vectors[shape_id], global_step=epoch)
         
 
-            if iteration % PARAMS["save_frec"] == 0:
+            if global_iteration % PARAMS["save_frec"] == 0:
                 model_file = os.path.join("checkpoints", f"{model.name}_{epoch}.pth")
                 torch.save({"model": model.state_dict(), 
                             "n_shapes": PARAMS["n_shapes"], 
                             "latent_size": PARAMS["latent_size"]}, model_file)
                 logging.info(f"Saving {model_file}")
+
+            global_iteration += 1
